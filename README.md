@@ -296,19 +296,13 @@ Important distinction:
 
 OmniRoute model listings often lack enough metadata for OpenCode to know whether a model accepts images. That can make OpenCode reject an image before the request is sent.
 
-The plugin fixes this for supported GPT-5/Codex-style routed models by hydrating both metadata fields OpenCode checks:
+The plugin defaults models to image-capable and hydrates both metadata fields OpenCode checks:
 
 - `capabilities.attachment = true`
 - `modalities.input = ["text", "image"]`
 
-Detection order:
-
-1. explicit `provider.omniroute.options.modelMetadata`
-2. OmniRoute model metadata from `/v1/models`
-3. `models.dev` enrichment
-4. conservative GPT-5/Codex-family fallback heuristics
-
-If a model should stay text-only, pin it explicitly:
+This avoids false negatives from conservative upstream metadata. If a model should stay
+text-only, opt out explicitly:
 
 ```json
 {

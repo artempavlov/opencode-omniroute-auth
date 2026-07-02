@@ -957,13 +957,11 @@ function toProviderModel(
   const configured = getConfiguredModelMetadata(model.id, config);
   const effectiveModel = configured ? { ...model, ...configured } : model;
   const embeddedVariant = getEmbeddedReasoningVariant(model.id, effectiveModel);
-  const supportsVisionOverride = getCapabilityOverride(model.id, configured, 'supportsVision');
+  const supportsVisionOverride = getCapabilityOverride(configured, 'supportsVision');
   const supportsVision = typeof supportsVisionOverride === 'boolean'
     ? supportsVisionOverride
-    : typeof model.supportsVision === 'boolean'
-      ? model.supportsVision
-      : supportsLikelyVisionInput(model.id);
-  const supportsToolsOverride = getCapabilityOverride(model.id, configured, 'supportsTools');
+    : true;
+  const supportsToolsOverride = getCapabilityOverride(configured, 'supportsTools');
   const supportsTools = typeof supportsToolsOverride === 'boolean'
     ? supportsToolsOverride
     : true;
@@ -1082,12 +1080,6 @@ function getProviderModelReasoningSupport(
 
 function supportsWidelySupportedReasoningEfforts(modelId: string): boolean {
   return /(^|[-_/])(gpt-5\.5|gpt-5\.4|gpt-5\.3-codex|gpt-5\.2-codex)(?:$|[-_/])/.test(
-    modelId.toLowerCase(),
-  );
-}
-
-function supportsLikelyVisionInput(modelId: string): boolean {
-  return /(^|\/)(codex|cx)\/gpt-5|gpt-5(\.[0-9]+)?-codex|(^|\/)gpt-5(\.[0-9]+)?(?:$|[-_/])|(^|[-_/])o[34](?:$|[-_/])/.test(
     modelId.toLowerCase(),
   );
 }
@@ -1251,18 +1243,11 @@ function omitMatcherFields(
 }
 
 function getCapabilityOverride(
-  modelId: string,
   metadata: OmniRouteModelMetadata | undefined,
   key: 'supportsVision' | 'supportsTools' | 'reasoning',
 ): boolean | undefined {
   const value = metadata?.[key];
-  if (typeof value !== 'boolean') return undefined;
-
-  if (key === 'supportsVision' && value === false && supportsLikelyVisionInput(modelId)) {
-    return undefined;
-  }
-
-  return value;
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 function getModelFamily(modelId: string): string {

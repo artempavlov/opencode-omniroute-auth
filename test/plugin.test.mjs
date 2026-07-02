@@ -1006,7 +1006,7 @@ test('responses mode detects OpenAI reasoning models behind dynamic provider pre
   });
 });
 
-test('loader enables tool calling by default even when upstream model metadata is conservative', async () => {
+test('loader restores MiMo capabilities when upstream model metadata is conservative', async () => {
   const plugin = await OmniRouteAuthPlugin({});
 
   global.fetch = async (input) => {
@@ -1058,10 +1058,14 @@ test('loader enables tool calling by default even when upstream model metadata i
 
   await plugin.auth.loader(async () => ({ type: 'api', key: 'secret-key' }), provider);
 
-  assert.equal(provider.models['mimo/mimo-v2.5'].capabilities.toolcall, true);
+  const model = provider.models['mimo/mimo-v2.5'];
+  assert.equal(model.capabilities.toolcall, true);
+  assert.equal(model.capabilities.attachment, true);
+  assert.equal(model.capabilities.input.image, true);
+  assert.deepEqual(model.modalities.input, ['text', 'image']);
 });
 
-test('loader respects explicit modelMetadata supportsTools false override', async () => {
+test('loader respects explicit modelMetadata capability opt-outs', async () => {
   const plugin = await OmniRouteAuthPlugin({});
 
   global.fetch = async (input) => {
@@ -1110,6 +1114,7 @@ test('loader respects explicit modelMetadata supportsTools false override', asyn
       modelMetadata: {
         'mimo/mimo-v2.5': {
           supportsTools: false,
+          supportsVision: false,
         },
       },
     },
@@ -1118,7 +1123,11 @@ test('loader respects explicit modelMetadata supportsTools false override', asyn
 
   await plugin.auth.loader(async () => ({ type: 'api', key: 'secret-key' }), provider);
 
-  assert.equal(provider.models['mimo/mimo-v2.5'].capabilities.toolcall, false);
+  const model = provider.models['mimo/mimo-v2.5'];
+  assert.equal(model.capabilities.toolcall, false);
+  assert.equal(model.capabilities.attachment, false);
+  assert.equal(model.capabilities.input.image, false);
+  assert.deepEqual(model.modalities.input, ['text']);
 });
 
 test('resetEmbeddedReasoningVariant restores generated variants for embedded high suffix models', async () => {
