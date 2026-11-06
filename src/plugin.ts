@@ -19,7 +19,7 @@ import {
   OMNIROUTE_DEFAULT_MODELS,
   OMNIROUTE_ENDPOINTS,
 } from './constants.js';
-import { fetchModels } from './models.js';
+import { applyRuntimeLimitOverrides, fetchModels } from './models.js';
 import {
   getConfiguredStripOpenCodeSystemPromptStatus,
   getOpencodeConfigFilePath,
@@ -100,7 +100,14 @@ export const OmniRouteAuthPlugin: Plugin = async (_input) => {
       const providerNpm = resolveProviderNpm(existingProvider?.npm, apiMode);
       const providerUrl = getProviderUrl(baseUrl, apiMode);
       const providerEnv = existingProvider?.env ?? OMNIROUTE_PROVIDER_ENV;
-      let configuredModels = getConfigSeedModels(existingProvider?.models);
+      let configuredModels = getConfigSeedModels(existingProvider?.models).map((model) =>
+        applyRuntimeLimitOverrides(model, {
+          baseUrl,
+          apiKey: '',
+          apiMode,
+          enableFullGpt55Context,
+        }),
+      );
       const providerApiKey = await getProviderApiKey(_input, providerEnv);
 
       if (providerApiKey) {
@@ -921,6 +928,7 @@ function getConfigSeedModels(models: unknown): OmniRouteModel[] {
         isRecord(metadata.variants) && Object.keys(metadata.variants).length > 0
           ? metadata.variants
           : undefined,
+      capabilities,
     } satisfies OmniRouteModel;
   });
 }
@@ -1123,12 +1131,33 @@ function getVariants(
   apiMode: OmniRouteApiMode,
 ): Record<string, unknown> {
   const supportsWidelySupportedEfforts = supportsWidelySupportedReasoningEfforts(model.id);
-  const generatedEfforts = supportsXHighReasoningEffort(model.id)
-    ? (['low', 'medium', 'high', 'xhigh'] as const)
-    : (['low', 'medium', 'high'] as const);
+  const rawRecord = model as OmniRouteModel & {
+    capabilities?: {
+      effort_tiers?: unknown;
+      reasoning?: { effort?: unknown };
+    };
+  };
+  const rawTiers =
+    rawRecord.capabilities?.effort_tiers ??
+    rawRecord.capabilities?.reasoning?.effort ??
+    (typeof model.reasoning === 'object' && model.reasoning !== null
+      ? (model.reasoning as { effort?: unknown }).effort
+      : undefined);
+  const effortTiers = Array.isArray(rawTiers)
+    ? rawTiers.filter(
+        (tier): tier is 'low' | 'medium' | 'high' | 'minimal' | 'none' | 'max' | 'xhigh' =>
+          typeof tier === 'string',
+      )
+    : undefined;
+  const generatedEfforts =
+    effortTiers && effortTiers.length > 0
+      ? effortTiers
+      : supportsXHighReasoningEffort(model.id)
+        ? (['low', 'medium', 'high', 'xhigh'] as const)
+        : (['low', 'medium', 'high'] as const);
   const shouldGenerateReasoningVariants =
     apiMode !== 'anthropic' &&
-    (reasoning || supportsWidelySupportedEfforts) &&
+    (reasoning || supportsWidelySupportedEfforts || Boolean(effortTiers && effortTiers.length > 0)) &&
     !hasEmbeddedReasoningVariant(model);
 
   const generated = shouldGenerateReasoningVariants

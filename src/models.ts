@@ -29,9 +29,9 @@ function getModelCapability(
   return typeof capability === 'boolean' ? capability : undefined;
 }
 
-function applyRuntimeLimitOverrides(
+export function applyRuntimeLimitOverrides(
   model: OmniRouteModel,
-  config: OmniRouteConfig,
+  config: OmniRouteConfig | { enableFullGpt55Context?: boolean },
 ): OmniRouteModel {
   if (config.enableFullGpt55Context === true) {
     return model;

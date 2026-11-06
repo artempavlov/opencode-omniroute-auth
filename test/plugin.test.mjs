@@ -9,6 +9,7 @@ import OmniRouteTuiPlugin, { tui } from '../dist/tui.js';
 import { clearModelCache, clearModelsDevCache, fetchModels } from '../dist/runtime.js';
 
 const ORIGINAL_FETCH = global.fetch;
+process.env.OPENCODE_AUTH_PATH = '/nonexistent/auth.json';
 
 function createEmptyOmniRouteFetch() {
   return async (input) => {
@@ -36,7 +37,7 @@ afterEach(() => {
   clearModelCache();
   clearModelsDevCache();
   global.fetch = ORIGINAL_FETCH;
-  delete process.env.OPENCODE_AUTH_PATH;
+  process.env.OPENCODE_AUTH_PATH = '/nonexistent/auth.json';
   delete process.env.OPENCODE_CONFIG_DIR;
 });
 
@@ -3972,3 +3973,83 @@ test('gemini tools are wrapped as functionDeclarations', async () => {
     },
   ]);
 });
+
+test('models with explicit capabilities.effort_tiers expose exact variants', async () => {
+  const plugin = await OmniRouteAuthPlugin({});
+  const config = {
+    provider: {
+      omniroute: {
+        env: ['TEST_OMNIROUTE_API_KEY_DISABLED'],
+        options: {
+          baseURL: 'http://localhost:20128/v1',
+          apiMode: 'chat',
+        },
+        models: {
+          'oc-proxy/opencode/deepseek-v4.1-flash-free': {
+            name: 'DeepSeek V4.1 Flash Free',
+            capabilities: {
+              toolcall: true,
+              attachment: true,
+              effort_tiers: ['low', 'high', 'max'],
+            },
+            limit: {
+              context: 200000,
+              output: 32000,
+            },
+          },
+        },
+      },
+    },
+  };
+
+  await plugin.config(config);
+
+  assert.deepEqual(config.provider.omniroute.models['oc-proxy/opencode/deepseek-v4.1-flash-free'].variants, {
+    low: { reasoningEffort: 'low' },
+    high: { reasoningEffort: 'high' },
+    max: { reasoningEffort: 'max' },
+  });
+});
+
+test('models with capabilities.reasoning.effort expose exact variants', async () => {
+  const plugin = await OmniRouteAuthPlugin({});
+  const config = {
+    provider: {
+      omniroute: {
+        env: ['TEST_OMNIROUTE_API_KEY_DISABLED'],
+        options: {
+          baseURL: 'http://localhost:20128/v1',
+          apiMode: 'chat',
+        },
+        models: {
+          'oc-proxy/opencode/nemotron-3.5-super-vl-free': {
+            name: 'Nemotron 3.5 Super VL Free',
+            capabilities: {
+              toolcall: true,
+              attachment: true,
+              reasoning: {
+                effort: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+              },
+            },
+            limit: {
+              context: 200000,
+              output: 32000,
+            },
+          },
+        },
+      },
+    },
+  };
+
+  await plugin.config(config);
+
+  assert.deepEqual(config.provider.omniroute.models['oc-proxy/opencode/nemotron-3.5-super-vl-free'].variants, {
+    none: { reasoningEffort: 'none' },
+    minimal: { reasoningEffort: 'minimal' },
+    low: { reasoningEffort: 'low' },
+    medium: { reasoningEffort: 'medium' },
+    high: { reasoningEffort: 'high' },
+    xhigh: { reasoningEffort: 'xhigh' },
+  });
+});
+

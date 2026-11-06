@@ -21,6 +21,8 @@ export interface OmniRouteModel {
   resetEmbeddedReasoningVariant?: boolean;
   /** Optional OpenCode variant definitions for this model */
   variants?: Record<string, unknown>;
+  /** Optional capabilities map from OmniRoute/upstream */
+  capabilities?: Record<string, unknown>;
   pricing?: {
     input?: number;
     output?: number;
@@ -44,6 +46,8 @@ export interface OmniRouteModelMetadata {
   resetEmbeddedReasoningVariant?: boolean;
   /** Optional explicit variant map exposed to OpenCode */
   variants?: Record<string, unknown>;
+  /** Optional capabilities map from OmniRoute/upstream */
+  capabilities?: Record<string, unknown>;
   pricing?: {
     input?: number;
     output?: number;
